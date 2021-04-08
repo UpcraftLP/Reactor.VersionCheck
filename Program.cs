@@ -28,7 +28,7 @@ namespace Reactor.VersionCheck
         private Program(string wd)
         {
             workingDir = wd;
-            var logDir = Path.Combine(workingDir, "logs");
+            var logDir = Path.Join(workingDir, "logs");
             Directory.CreateDirectory(logDir);
             using var loggerFactory = LoggerFactory.Create(builder =>
             {
@@ -51,36 +51,31 @@ namespace Reactor.VersionCheck
         private static void Main(string[] args)
         {
             var workingDir = Directory.GetCurrentDirectory();
-            DotEnv.Load(Path.Combine(workingDir, ".env")); // load .env file into system variables
+            DotEnv.Load(Path.Join(workingDir, ".env")); // load .env file into system variables
             new Program(workingDir).Start();
         }
 
         private void Start()
         {
-            File.Create(Path.Combine(Directory.GetCurrentDirectory(), "test.txt"));
             logger.LogInformation("Reactor Version Checker starting...");
-            var downloadDir = Path.GetFullPath(DotEnv.Get("DOWNLOAD_DIRECTORY", Path.Combine(workingDir, ".download")));
+            var downloadDir = Path.GetFullPath(DotEnv.Get("DOWNLOAD_DIRECTORY", Path.Join(workingDir, ".download")));
             if (!Directory.Exists(downloadDir))
             {
-                logger.LogDebug("creating download directory at {}", downloadDir);
+                logger.LogDebug("creating download directory at {DownloadDirectory}", downloadDir);
             }
-            var depotDir = Path.Combine(downloadDir, "depot");
+            var depotDir = Path.Join(downloadDir, "depot");
             if (Directory.Exists(depotDir))
             {
                 Directory.Delete(depotDir, true);
             }
-            Directory.CreateDirectory(depotDir);
 
             var manifestDir = Path.Join(depotDir, "manifests");
             Directory.CreateDirectory(manifestDir);
 
             // setup done
-            var configDir = DotEnv.Get("CONFIG_DIRECTORY", Path.Join(workingDir, "config"));
-            var accountCfgPath = Path.GetFullPath(Path.Join(configDir, "steam_account_config"));
-
-            AccountSettingsStore.LoadFromFile(accountCfgPath);
+            AccountSettingsStore.LoadFromFile("steam_account.config");
             ContentDownloader.Config.RememberPassword = true;
-            string[] steam = CredentialHelper.GetSteamLogin();
+            string[] steam = CredentialHelper.GetSteamCredentials();
             ContentDownloader.InitializeSteam3(steam[0], steam[1]);
 
             const string gameVersionFile = "Among Us_Data/globalgamemanagers";
@@ -92,22 +87,24 @@ namespace Reactor.VersionCheck
             ContentDownloader.DownloadAppAsync(AppID, DepotID, ContentDownloader.INVALID_MANIFEST_ID, branch).Wait();
             ContentDownloader.Config.DownloadManifestOnly = false;
 
+            // parse manifest
+            var manifestVersion = ManifestVersionParser.Parse(manifestDir, logger);
+            
             // step 2: download file that contains game version
             ContentDownloader.Config.InstallDirectory = depotDir;
-            var toDownload = new List<string> {gameVersionFile.Replace("/", "\\")};
+            var toDownload = new List<string> {gameVersionFile, gameVersionFile.Replace("/", "\\")};
             ContentDownloader.Config.UsingFileList = true;
             ContentDownloader.Config.FilesToDownload = toDownload;
             ContentDownloader.Config.FilesToDownloadRegex = new List<Regex>();
-            ContentDownloader.DownloadAppAsync(AppID, DepotID, ContentDownloader.INVALID_MANIFEST_ID, branch).Wait();
+            ContentDownloader.DownloadAppAsync(AppID, DepotID, manifestVersion, branch).Wait();
 
             // close steam3 connection
             ContentDownloader.ShutdownSteam3();
 
             var readableVersion = GameVersionParser.Parse(Path.Join(depotDir, gameVersionFile));
-            logger.LogInformation("Among Us Version {Version}", readableVersion);
-
-            var manifestVersion = ManifestVersionParser.Parse(manifestDir, logger);
+            
             logger.LogInformation("Manifest Version {ManifestVersion}", manifestVersion);
+            logger.LogInformation("Among Us Version {Version}", readableVersion);
         }
     }
 }

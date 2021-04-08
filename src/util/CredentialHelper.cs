@@ -6,16 +6,20 @@ namespace Reactor.VersionCheck.util
 {
     public static class CredentialHelper
     {
-        public static string[] GetSteamLogin()
+        public static string[] GetSteamCredentials()
         {
             string steamInfoB64 = DotEnv.Get("STEAM_LOGIN", "");
-            if (steamInfoB64.Length == 0)
+            return GetCredentials(steamInfoB64, () => "No Steam credentials provided");
+        }
+
+        public static string[] GetCredentials(string base64, Func<string> errorMessageFactory, string separator = ":")
+        {
+            if (base64.Length == 0)
             {
-                throw new AuthenticationException("No Steam credentials provided");
+                throw new AuthenticationException(errorMessageFactory.Invoke());
             }
-            byte[] data = Convert.FromBase64String(steamInfoB64);
-            string steamInfoDecoded = Encoding.UTF8.GetString(data);
-            return steamInfoDecoded.Split(":", 2);
+            byte[] data = Convert.FromBase64String(base64);
+            return Encoding.UTF8.GetString(data).Split(separator, 2);
         }
     }
 }

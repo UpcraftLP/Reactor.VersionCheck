@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net5.0</TargetFramework>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include=".github\workflows\release.yml" />
+        <PackageReference Include="DepotDownloader.Library" Version="0.1.2" />
+        <PackageReference Include="Karambolo.Extensions.Logging.File" Version="3.2.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="run\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Remove="run\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="run\**" />
+    </ItemGroup>
+</Project>

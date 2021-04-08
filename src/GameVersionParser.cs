@@ -11,12 +11,8 @@ namespace Reactor.VersionCheck.util
         private static int IndexOf(this IReadOnlyCollection<byte> source, IReadOnlyCollection<byte> pattern)
         {
             for (var i = 0; i < source.Count; i++)
-            {
                 if (source.Skip(i).Take(pattern.Count).SequenceEqual(pattern))
-                {
                     return i;
-                }
-            }
 
             return -1;
         }

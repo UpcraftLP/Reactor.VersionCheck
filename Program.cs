@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.RegularExpressions;
 using DepotDownloader;
 using Karambolo.Extensions.Logging.File;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactor.VersionCheck.util;
 
@@ -19,11 +16,6 @@ namespace Reactor.VersionCheck
 
         private readonly ILogger<Program> logger;
         private readonly string workingDir;
-
-        public ILogger<Program> GetLogger()
-        {
-            return logger;
-        }
 
         private Program(string wd)
         {
@@ -48,6 +40,11 @@ namespace Reactor.VersionCheck
             logger = loggerFactory.CreateLogger<Program>();
         }
 
+        public ILogger<Program> GetLogger()
+        {
+            return logger;
+        }
+
         private static void Main(string[] args)
         {
             var workingDir = Directory.GetCurrentDirectory();
@@ -60,14 +57,9 @@ namespace Reactor.VersionCheck
             logger.LogInformation("Reactor Version Checker starting...");
             var downloadDir = Path.GetFullPath(DotEnv.Get("DOWNLOAD_DIRECTORY", Path.Join(workingDir, ".download")));
             if (!Directory.Exists(downloadDir))
-            {
                 logger.LogDebug("creating download directory at {DownloadDirectory}", downloadDir);
-            }
             var depotDir = Path.Join(downloadDir, "depot");
-            if (Directory.Exists(depotDir))
-            {
-                Directory.Delete(depotDir, true);
-            }
+            if (Directory.Exists(depotDir)) Directory.Delete(depotDir, true);
 
             var manifestDir = Path.Join(depotDir, "manifests");
             Directory.CreateDirectory(manifestDir);
@@ -84,25 +76,25 @@ namespace Reactor.VersionCheck
             // step 1: download manifest
             ContentDownloader.Config.InstallDirectory = manifestDir;
             ContentDownloader.Config.DownloadManifestOnly = true;
-            ContentDownloader.DownloadAppAsync(AppID, DepotID, ContentDownloader.INVALID_MANIFEST_ID, branch).Wait();
+            ContentDownloader.DownloadAppAsync(AppID, DepotID).Wait();
             ContentDownloader.Config.DownloadManifestOnly = false;
 
             // parse manifest
             var manifestVersion = ManifestVersionParser.Parse(manifestDir, logger);
-            
+
             // step 2: download file that contains game version
             ContentDownloader.Config.InstallDirectory = depotDir;
             var toDownload = new List<string> {gameVersionFile, gameVersionFile.Replace("/", "\\")};
             ContentDownloader.Config.UsingFileList = true;
             ContentDownloader.Config.FilesToDownload = toDownload;
             ContentDownloader.Config.FilesToDownloadRegex = new List<Regex>();
-            ContentDownloader.DownloadAppAsync(AppID, DepotID, manifestVersion, branch).Wait();
+            ContentDownloader.DownloadAppAsync(AppID, DepotID, manifestVersion).Wait();
 
             // close steam3 connection
             ContentDownloader.ShutdownSteam3();
 
             var readableVersion = GameVersionParser.Parse(Path.Join(depotDir, gameVersionFile));
-            
+
             logger.LogInformation("Manifest Version {ManifestVersion}", manifestVersion);
             logger.LogInformation("Among Us Version {Version}", readableVersion);
         }
